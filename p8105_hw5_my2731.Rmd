@@ -16,9 +16,9 @@ knitr::opts_chunk$set(
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
-## Problem 1
+## Part 1: 
 
-## Problem 2
+## Part 2: U.S. Homicide Rates
 
 Let's load the raw homicide data and inspect it.
 
@@ -101,5 +101,31 @@ unsolved_homicides %>%
   )
 ```
 
-## Problem 3
+## Part 3: Simulating parameters that affect power
+
+A common question when designing experiments is whether a false null hypothesis will be rejected, or what the power of a study will be. Power depends on the sample size of our study, effect size, and error variance. In this problem, we will conduct a simulation to explore power in a one-sample t-test. 
+
+First, we will write a function that estimates the mean and standard deviation from a normal distribution. We will fix the $n = 30$, $\sigma = 5$, and $\mu = 0$.  
+
+```{r function}
+sim_mean_sd = function(n = 30, mu = 0, sigma = 5) {
+  
+  sim_data = tibble(
+    x = rnorm(n, mean = mu, sd = sigma),
+  )
+  
+  sim_data %>% 
+    summarise(
+      mu_hat = mean(x),
+      sigma_hat = sd(x)
+    )
+}
+
+```
+
+Next, we will generate 5000 datasets from this model
+
+```{r}
+
+```
 
