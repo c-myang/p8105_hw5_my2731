@@ -7,7 +7,7 @@ date: "November 15th, 2022"
 ```{r setup, include = FALSE}
 library(tidyverse)
 library(p8105.datasets)
-library(patchwork)
+
 knitr::opts_chunk$set(
   warning = FALSE, 
   message = FALSE,
@@ -19,6 +19,45 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ## Problem 1
 
 ## Problem 2
+
+Let's load the raw homicide data and inspect it.
+
+```{r load data}
+homicide_df = read_csv("data/homicide-data.csv") %>% 
+  janitor::clean_names()
+
+homicide_df
+```
+
+There are `r nrow(homicide_df)` observations of `r ncol(homicide_df)` variables containing information about homicides in 50 cities across the US. The data contains the date, victim information (name, age, sex, race), location (city, state, latitude, longitude), and status of the case.
+
+Next, let's summarize the data within cities to obtain the total number of homicides and the number of unsolved homicides.
+
+```{r clean data}
+homicide_summary = homicide_df %>% 
+  mutate(
+    city_state = str_c(city, state, sep = ", "), 
+    status = ifelse(disposition == "Closed without arrest" | disposition == "Open/No arrest", "Solved", "Unsolved")) %>% 
+  group_by(city_state) %>% 
+  summarise(n_unsolved = sum(status == "Unsolved"), 
+            n_total = n()) 
+```
+
+```{r}
+baltimore_df = homicide_summary %>% 
+  filter(city_state == "Baltimore, MD") 
+
+x = baltimore_df %>% pull(n_unsolved)
+n = baltimore_df %>% pull(n_total)
+  
+baltimore_est = prop.test(x, n) 
+
+baltimore_est %>% 
+  broom::tidy() %>% 
+  select(estimate, conf.low, conf.high)
+```
+
+
 
 ## Problem 3
 
