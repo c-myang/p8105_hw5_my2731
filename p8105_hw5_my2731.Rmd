@@ -41,9 +41,13 @@ homicide_summary = homicide_df %>%
   group_by(city_state) %>% 
   summarise(n_unsolved = sum(status == "Unsolved"), 
             n_total = n()) 
+
+homicide_summary
 ```
 
-```{r}
+Next, for the city of Baltimore, MD, we will use the `prop.test` function to estimate the proportion of homicides that are unsolved and its confidence interval.
+
+```{r estimates for Baltimore}
 baltimore_df = homicide_summary %>% 
   filter(city_state == "Baltimore, MD") 
 
@@ -54,7 +58,45 @@ baltimore_est = prop.test(x, n)
 
 baltimore_est %>% 
   broom::tidy() %>% 
-  select(estimate, conf.low, conf.high)
+  select(estimate, conf.low, conf.high) %>% 
+  mutate_all(~ . * 100) %>% 
+  rename("Estimated proportion of unsolved homicides" = estimate,
+         "Lower confidence limit" = conf.low, 
+         "Upper confidence limit" = conf.high)
+```
+
+We can see that the estimated proportion of of unsolved homicides in Baltimore is `r baltimore_est %>% broom::tidy() %>% pull(estimate)*100`%. We are 95% confident that the proportion of unsolved homicides in Baltimore is between `r baltimore_est %>% broom::tidy() %>% pull(conf.low)*100`% and `r baltimore_est %>% broom::tidy() %>% pull(conf.high)*100`%.
+
+Next, we want use `map` to apply the `prop.test` function to estimate the proportion of unsolved homicides in all cities in our dataset.
+
+```{r mapping prop.test}
+unsolved_homicides = homicide_summary %>% 
+  mutate(
+    prop_test = map2(.x = n_unsolved, .y = n_total, ~prop.test(x = .x, n = .y) %>% 
+                       broom::tidy())) %>% 
+  unnest(prop_test) %>% 
+  select(city_state:estimate, conf.low, conf.high)
+
+unsolved_homicides
+```
+
+The resulting `unsolved_homicides` dataframe contains `r nrow(unsolved_homicides)` observations of `r ncol(unsolved_homicides)` variables, providing number of unsolved and total homicides, and the estimated proportion of unsolved homicides, along with their 95% CIs which come from mapping the `prop.test` function to all the cities.
+
+Finally, we will create a plot of the estimated proportions of unsolved homicides in each city, along with their confidence intervals.
+
+```{r plot}
+unsolved_homicides %>% 
+  mutate(city_state = fct_reorder(city_state, estimate)) %>% 
+  ggplot(aes(x = city_state, y = estimate, colour = estimate)) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high, width = .3)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), 
+        legend.position = "none") + 
+  labs(
+    x = "Location",
+    y = "Estimated proportion of unsolved homicides",
+    title = "Proportion of homicides that are unsolved in 50 U.S. cities, 2007-2017",
+  )
 ```
 
 
