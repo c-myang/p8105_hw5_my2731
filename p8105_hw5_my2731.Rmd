@@ -23,21 +23,23 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 Let's load the raw homicide data and inspect it.
 
 ```{r load data}
-homicide_df = read_csv("data/homicide-data.csv") %>% 
+homicide_data = read_csv("data/homicide-data.csv") %>% 
   janitor::clean_names()
 
-homicide_df
+homicide_data
 ```
 
-There are `r nrow(homicide_df)` observations of `r ncol(homicide_df)` variables containing information about homicides in 50 cities across the US. The data contains the date, victim information (name, age, sex, race), location (city, state, latitude, longitude), and status of the case.
+There are `r nrow(homicide_data)` observations of `r ncol(homicide_data)` variables containing information about homicides in 50 cities across the US. The data contains the date, victim information (name, age, sex, race), location (city, state, latitude, longitude), and status of the case.
 
 Next, let's summarize the data within cities to obtain the total number of homicides and the number of unsolved homicides.
 
 ```{r clean data}
-homicide_summary = homicide_df %>% 
+homicide_summary = homicide_data %>% 
   mutate(
+    state = str_to_upper(state),
     city_state = str_c(city, state, sep = ", "), 
-    status = ifelse(disposition == "Closed without arrest" | disposition == "Open/No arrest", "Solved", "Unsolved")) %>% 
+    status = ifelse(
+      disposition == "Closed without arrest" | disposition == "Open/No arrest", "Solved", "Unsolved")) %>% 
   group_by(city_state) %>% 
   summarise(n_unsolved = sum(status == "Unsolved"), 
             n_total = n()) 
@@ -98,8 +100,6 @@ unsolved_homicides %>%
     title = "Proportion of homicides that are unsolved in 50 U.S. cities, 2007-2017",
   )
 ```
-
-
 
 ## Problem 3
 
