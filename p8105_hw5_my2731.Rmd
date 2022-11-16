@@ -18,9 +18,9 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 
 ## Part 1: Wrangling longitudinal study data
 
-This zip file contains data from a longitudinal study that included a control arm and an experimental arm. Data for each participant is included in a separate file, and file names include the subject ID and arm. 
+The `./long_data` folder contains data from a longitudinal study that included a control arm and an experimental arm. Data for each participant is included in a separate file, and file names include the subject ID and arm. 
 
-The code chunk below imports the data in individual spreadsheets contained in `./long_data/`. To do this, I create a dataframe that includes the list of all files in that directory and the complete path to each file. As a next step, I `map` over paths and import data using the `read_csv` function. Finally, I `unnest` the result of `map`.
+The code chunk below imports the data in individual spreadsheets contained in `./long_data`. To do this, we create a dataframe that includes the list of all files in that directory and the complete path to each file. As a next step, we `map` over paths and import data using the `read_csv` function. Finally, we can `unnest` the result of `map`.
 
 ```{r load longitudinal data}
 full_df = tibble(
@@ -36,7 +36,8 @@ The result of the previous code chunk isn't tidy -- data are wide rather than lo
 tidy_df = full_df %>% 
   mutate(
     files = str_replace(files, ".csv", ""),
-    group = str_sub(files, 1, 3)) %>% 
+    group = recode(str_sub(files, 1, 3), con = "Control", exp = "Experimental")
+    ) %>% 
   pivot_longer(
     week_1:week_8,
     names_to = "week",
@@ -53,12 +54,19 @@ tidy_df %>%
   ggplot(aes(x = week, y = outcome, group = subj, color = group)) + 
   geom_point() + 
   geom_path() + 
-  facet_grid(~group) 
+  facet_grid(~group) +
+  labs(
+    x = "Week", 
+    y = "Outcome", 
+    color = "Group"
+  )
 ```
 
 This plot suggests high within-subject correlation -- subjects who start above average end up above average, and those that start below average end up below average. Subjects in the control group generally don't change over time, but those in the experiment group increase their outcome in a roughly linear way. 
 
 ## Part 2: U.S. Homicide Rates
+
+### Clean and summarise data
 
 The Washington Post has gathered data on homicides in 50 large U.S. cities. Let's load the raw homicide data and inspect it.
 
@@ -71,7 +79,7 @@ homicide_data
 
 There are `r nrow(homicide_data)` observations of `r ncol(homicide_data)` variables containing information about homicides in 50 cities across the US. The data contains the date, victim information (name, age, sex, race), location (city, state, latitude, longitude), and status of the case.
 
-Next, let's tidy the data by creating a city_state variable, and changing wrongly entered data entries (notably, changing Tulsa, AL to Tulsa, OK). We will then summarise the data within cities to obtain the total number of homicides and the number of unsolved homicides.
+Next, let's tidy the data by creating a `city_state` variable, and mutating entries that are incorrectly entered (notably, changing Tulsa, AL to Tulsa, OK). We will group by and summarise the data within cities to obtain the total number of homicides and the number of unsolved homicides.
 
 ```{r clean data}
 homicide_summary = homicide_data %>% 
@@ -88,6 +96,8 @@ homicide_summary = homicide_data %>%
 homicide_summary
 ```
 
+### Estimating the proportion of unsolved homicides in Baltimore
+
 Next, for the city of Baltimore, MD, we will use the `prop.test` function to estimate the proportion of homicides that are unsolved and its confidence interval.
 
 ```{r estimates for Baltimore}
@@ -103,14 +113,17 @@ baltimore_est %>%
   broom::tidy() %>% 
   select(estimate, conf.low, conf.high) %>% 
   mutate_all(~ . * 100) %>% 
-  rename("Estimated proportion of unsolved homicides" = estimate,
+  mutate(across(everything(), round, 2)) %>% 
+  rename("Estimated proportion of unsolved homicides (%)" = estimate,
          "Lower confidence limit" = conf.low, 
          "Upper confidence limit" = conf.high)
 ```
 
 We can see that the estimated proportion of of unsolved homicides in Baltimore is `r baltimore_est %>% broom::tidy() %>% pull(estimate)*100`%. We are 95% confident that the proportion of unsolved homicides in Baltimore is between `r baltimore_est %>% broom::tidy() %>% pull(conf.low)*100`% and `r baltimore_est %>% broom::tidy() %>% pull(conf.high)*100`%.
 
-Next, we want use `map2` to apply the `prop.test` function to estimate the proportion of unsolved homicides in all cities in our dataset.
+### Estimating the proportion of unsolved homicides across cities
+
+While the code chunk above lets us compute the output for single city, we may want a more efficient way to get estimates for all cities. We will therefore use `map2` to apply the `prop.test` function to estimate the proportion of unsolved homicides in all cities in our dataset.
 
 ```{r mapping prop.test}
 unsolved_homicides = homicide_summary %>% 
@@ -139,12 +152,19 @@ unsolved_homicides %>%
     x = "Location",
     y = "Estimated proportion of unsolved homicides",
     title = "Proportion of homicides that are unsolved in 50 U.S. cities, 2007-2017",
+    caption = paste0(
+          "Error bars represent the 95% confidence interval.",
+          "\nSource: The Washington Post.")
   )
 ```
+
+We can see from the above plot that the estimated proportion of unsolved homicides ranges from ~25% to ~75%. The cities with the lowest unsolved homicide rates include Chicago and New Orleans, while cities with the highest unsolved homicide rates include Charlotte and Richmond.
 
 ## Part 3: Simulating parameters that affect power
 
 A common question when designing experiments is whether a false null hypothesis will be rejected, or what the power of a study will be. Power depends on the sample size of our study, effect size, and error variance. In this problem, we will conduct a simulation to explore power in a one-sample t-test. 
+
+### Iterating a t-test computation
 
 First, we will write a function that generates a random sample from a normal distribution and outputs the results for a one-sample t-test of $H_0: \mu = 0$ for $\alpha = 0.05$ on the sample mean. We will fix the $n = 30$, $\sigma = 5$, and allow the $\mu$ to vary.
 
@@ -153,14 +173,14 @@ sim_t_test = function(true_mean) {
   
   sample = rnorm(n = 30, sd = 5, mean = true_mean)
   
-  test_results = t.test(sample, mu = true_mean)
+  test_results = t.test(sample)
   
   test_results %>% 
     broom::tidy()
 }
 ```
 
-We will map the `sim_t_test` function 5000 times, setting the true $\mu = 0$, and saving the estimated mean and p-value from the t-test results.
+We will map the `sim_t_test` function 5000 times, setting the true $\mu = 0$, and save the estimated mean and p-value from the t-test results.
 
 ```{r}
 sim_df = expand_grid(
@@ -174,7 +194,9 @@ sim_df
 ```
 The resulting dataset has `r nrow(sim_df)` iterations of estimates for $\hat{\mu}$ generated from a normal distribution and p-values for one-sample t-test for a true mean of $\mu = 0$. We can see that the $\hat{\mu}$ estimates hover around 0. For $\hat{\mu}$ estimates that are far from 0, the corresponding p-value is less than 0.05, indicating a rejection of the null hypothesis.
 
-Now, we want to see how often $H_0$ is rejected when we increase $\mu$. For this, we will iterate on 5000 random samples of a normal distribution for $\mu= \{1,2,3,4,5,6\}$. We will also create a `reject_h0` variable to indicate whether the null hypothesis of $H_0: \mu = true mean$ was rejected based on the `p.value`.
+### Computing power across varying effect sizes
+
+Now, we want to see how often $H_0$ is rejected when we increase $\mu$. For this, we will iterate on 5000 random samples of a normal distribution for $\mu= \{1,2,3,4,5,6\}$. We will also create a `reject_h0` variable to indicate whether the null hypothesis of $H_0: \mu = 0$ was rejected based on the `p.value`.
 
 ```{r}
 power_df = expand_grid(
@@ -199,7 +221,7 @@ summary_power = power_df %>%
 
 summary_power %>% 
   ggplot(aes(x = true_mean, y = prop_reject)) + 
-  geom_point(colour = "purple", size = 2) + 
+  geom_point(colour = "maroon", size = 2) + 
   labs(
     x = "True mean",
     y = "Power",
@@ -207,15 +229,15 @@ summary_power %>%
   )
 ```
 
-Notably, we see that as the effect size $\mu$ increases, the power increases.
+The above plot shows that as the distance between $\mu$ and $0$ increases (i.e. the effect size), the power (probability of rejecting the null hypothesis given $H_\alpha: \mu ≠ 0$) increases. For the largest effect size of $\mu ≠ 6$, the power was 100%.
 
 Finally, we can plot the average estimates of $\hat{\mu}$ against the true $\mu$, for samples where the null hypothesis was rejected versus not rejected.
 
 ```{r}
 power_df %>% 
   group_by(true_mean, reject_h0) %>% 
-  summarise(mean_est = mean(estimate, na.rm = TRUE)) %>% 
-  mutate(reject_h0 = fct_relevel(c("Null rejected", "Null not rejected"))) %>% 
+  summarise(mean_est = mean(estimate)) %>% 
+  mutate(reject_h0 = fct_relevel(reject_h0, c("Null rejected", "Null not rejected"))) %>% 
   ggplot(aes(x = true_mean, y = mean_est, colour = reject_h0)) + 
   geom_point() + 
   labs(
@@ -226,5 +248,6 @@ power_df %>%
   )
 ```
 
-Based on the plot, we can see that for samples where the null hypothesis was rejected, average $\hat{\mu}$̂ estimates across tests for which the null is rejected is not equal to the true value of $\mu$. This is in accordance to what we would expect, as estimated means which deviate substantially from the true mean will lead to a rejection of the null hypothesis.
+Based on the plot, we can see that for samples where the null hypothesis was rejected, average $\hat{\mu}$ estimates across tests for which the null is rejected is much lower than true value of $\mu$. This is in accordance to what we would expect, as samples with an estimated mean closer to 0 will not reject the null, while samples which were closer to the true mean value will reject the the null hypothesis.
 
+Moreover, as the effect size ($\mu$) increased, the estimated means between samples that rejected/did not reject the null deviated further apart from each other. Notably, for $\mu = 6$, since all samples led to a rejection of the null hypothesis, there is no $\hat{\mu}$ value, indicating that the effect size was too large to sample a distribution which falsely failed to reject the null. 
