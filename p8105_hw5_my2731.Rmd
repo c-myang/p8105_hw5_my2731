@@ -37,6 +37,7 @@ Next, let's tidy the data by creating a city_state variable, and changing wrongl
 homicide_summary = homicide_data %>% 
   mutate(
     state = str_to_upper(state),
+    state = ifelse(city == "Tulsa" & state == "AL", "OK", state),
     city_state = str_c(city, state, sep = ", "), 
     status = ifelse(
       disposition == "Closed without arrest" | disposition == "Open/No arrest", "Solved", "Unsolved")) %>% 
@@ -185,5 +186,5 @@ power_df %>%
   )
 ```
 
-Based on the plot, we can see that for samples where the null hypothesis was rejected, average $\hat{\mu}$̂ estimates across tests for which the null is rejected is much lower than the true value of $\mu$. This is in accordance to what we would expect, as estimated means which deviate substantially from the true mean will lead to a rejection of the null hypothesis.
+Based on the plot, we can see that for samples where the null hypothesis was rejected, average $\hat{\mu}$̂ estimates across tests for which the null is rejected is not equal to the true value of $\mu$. This is in accordance to what we would expect, as estimated means which deviate substantially from the true mean will lead to a rejection of the null hypothesis.
 
