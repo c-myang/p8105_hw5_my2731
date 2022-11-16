@@ -1,7 +1,7 @@
 ---
 title: "P8105 Homework 3"
 output: github_document
-date: "November 15th, 2022"
+date: "November 16th, 2022"
 ---
 
 ```{r setup, include = FALSE}
@@ -105,27 +105,31 @@ unsolved_homicides %>%
 
 A common question when designing experiments is whether a false null hypothesis will be rejected, or what the power of a study will be. Power depends on the sample size of our study, effect size, and error variance. In this problem, we will conduct a simulation to explore power in a one-sample t-test. 
 
-First, we will write a function that estimates the mean and standard deviation from a normal distribution. We will fix the $n = 30$, $\sigma = 5$, and $\mu = 0$.  
+First, we will write a function that generates a random sample from a normal distribution and outputs the results for a one-sample t-test of $H_0: \mu = 0$ for $\alpha = 0.05$ on the sample mean. We will fix the $n = 30$, $\sigma = 5$, and allow the $\mu$ to vary.
 
-```{r function}
-sim_mean_sd = function(n = 30, mu = 0, sigma = 5) {
+```{r sim_t_test function}
+sim_t_test = function(true_mean) {
   
-  sim_data = tibble(
-    x = rnorm(n, mean = mu, sd = sigma),
-  )
+  sample = rnorm(n = 30, sd = 5, mean = true_mean)
   
-  sim_data %>% 
-    summarise(
-      mu_hat = mean(x),
-      sigma_hat = sd(x)
-    )
+  test_results = t.test(sample)
+  
+  test_results %>% 
+    broom::tidy()
 }
 
 ```
 
-Next, we will generate 5000 datasets from this model
+We will map the `sim_t_test` to a dataset of 5000 observations with a true $\mu = 0$, and pull the estimated mean and p-value from the t-test results.
 
 ```{r}
+sim_df = expand_grid(
+  true_mean = 0,
+  iterate = 1:50) %>% 
+  mutate(ttest_df = map(true_mean, sim_t_test)) %>% 
+  unnest(ttest_df) %>% 
+  select(true_mean:estimate, p.value)
 
+
+sim_df
 ```
-
