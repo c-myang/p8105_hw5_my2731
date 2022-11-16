@@ -109,7 +109,7 @@ n = baltimore_df %>% pull(n_total)
   
 baltimore_est = prop.test(x, n) 
 
-baltimore_est %>% 
+baltimore = baltimore_est %>% 
   broom::tidy() %>% 
   select(estimate, conf.low, conf.high) %>% 
   mutate_all(~ . * 100) %>% 
@@ -117,9 +117,11 @@ baltimore_est %>%
   rename("Estimated proportion of unsolved homicides (%)" = estimate,
          "Lower confidence limit" = conf.low, 
          "Upper confidence limit" = conf.high)
+
+baltimore$`Lower confidence limit`
 ```
 
-We can see that the estimated proportion of of unsolved homicides in Baltimore is `r baltimore_est %>% broom::tidy() %>% pull(estimate)*100`%. We are 95% confident that the proportion of unsolved homicides in Baltimore is between `r baltimore_est %>% broom::tidy() %>% pull(conf.low)*100`% and `r baltimore_est %>% broom::tidy() %>% pull(conf.high)*100`%.
+We can see that the estimated proportion of of unsolved homicides in Baltimore is `r baltimore$"Estimated proportion of unsolved homicides (%)"`%. We are 95% confident that the proportion of unsolved homicides in Baltimore is between `r baltimore$"Lower confidence limit"`% and `r baltimore$"Upper confidence limit"`%.
 
 ### Estimating the proportion of unsolved homicides across cities
 
@@ -239,7 +241,7 @@ power_df %>%
   summarise(mean_est = mean(estimate)) %>% 
   mutate(reject_h0 = fct_relevel(reject_h0, c("Null rejected", "Null not rejected"))) %>% 
   ggplot(aes(x = true_mean, y = mean_est, colour = reject_h0)) + 
-  geom_point() + 
+  geom_point(size = 2) + 
   labs(
     x = "True mean",
     y = "Estimated mean",
@@ -250,4 +252,4 @@ power_df %>%
 
 Based on the plot, we can see that for samples where the null hypothesis was rejected, average $\hat{\mu}$ estimates across tests for which the null is rejected is much lower than true value of $\mu$. This is in accordance to what we would expect, as samples with an estimated mean closer to 0 will not reject the null, while samples which were closer to the true mean value will reject the the null hypothesis.
 
-Moreover, as the effect size ($\mu$) increased, the estimated means between samples that rejected/did not reject the null deviated further apart from each other. Notably, for $\mu = 6$, since all samples led to a rejection of the null hypothesis, there is no $\hat{\mu}$ value, indicating that the effect size was too large to sample a distribution which falsely failed to reject the null. 
+Moreover, as the effect size $\mu$ increased, the estimated means between samples that rejected/did not reject the null deviated further apart from each other. Notably, for $\mu = 6$, since all samples led to a rejection of the null hypothesis, there is no $\hat{\mu}$ value, indicating that the effect size was too large to sample a distribution which falsely failed to reject the null. 
