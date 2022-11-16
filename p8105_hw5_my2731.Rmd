@@ -115,13 +115,13 @@ baltimore = baltimore_est %>%
   mutate_all(~ . * 100) %>% 
   mutate(across(everything(), round, 2)) %>% 
   rename("Estimated proportion of unsolved homicides (%)" = estimate,
-         "Lower confidence limit" = conf.low, 
-         "Upper confidence limit" = conf.high)
+         "Lower CI" = conf.low, 
+         "Upper CI" = conf.high)
 
-baltimore$`Lower confidence limit`
+baltimore
 ```
 
-We can see that the estimated proportion of of unsolved homicides in Baltimore is `r baltimore$"Estimated proportion of unsolved homicides (%)"`%. We are 95% confident that the proportion of unsolved homicides in Baltimore is between `r baltimore$"Lower confidence limit"`% and `r baltimore$"Upper confidence limit"`%.
+We can see that the estimated proportion of of unsolved homicides in Baltimore is `r baltimore$"Estimated proportion of unsolved homicides (%)"`%. We are 95% confident that the proportion of unsolved homicides in Baltimore is between `r baltimore$"Lower CI"`% and `r baltimore$"Upper CI"`%.
 
 ### Estimating the proportion of unsolved homicides across cities
 
