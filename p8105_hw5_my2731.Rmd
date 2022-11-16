@@ -16,13 +16,53 @@ knitr::opts_chunk$set(
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
-## Part 1: 
+## Part 1: Wrangling longitudinal study data
+
+This zip file contains data from a longitudinal study that included a control arm and an experimental arm. Data for each participant is included in a separate file, and file names include the subject ID and arm. 
+
+The code chunk below imports the data in individual spreadsheets contained in `./long_data/`. To do this, I create a dataframe that includes the list of all files in that directory and the complete path to each file. As a next step, I `map` over paths and import data using the `read_csv` function. Finally, I `unnest` the result of `map`.
+
+```{r load longitudinal data}
+full_df = tibble(
+  files = list.files("./long_data"),
+  path = str_c("./long_data/", files)) %>% 
+  mutate(data = map(path, read_csv)) %>% 
+  unnest()
+```
+
+The result of the previous code chunk isn't tidy -- data are wide rather than long, and some important variables are included as parts of others. The code chunk below tides the data using string manipulations on the file, converting from wide to long, and selecting relevant variables.
+
+```{r}
+tidy_df = full_df %>% 
+  mutate(
+    files = str_replace(files, ".csv", ""),
+    group = str_sub(files, 1, 3)) %>% 
+  pivot_longer(
+    week_1:week_8,
+    names_to = "week",
+    values_to = "outcome",
+    names_prefix = "week_") %>% 
+  mutate(week = as.numeric(week)) %>% 
+  select(group, subj = files, week, outcome)
+```
+
+Finally, the code chunk below creates a plot showing individual data, faceted by group. 
+
+```{r}
+tidy_df %>% 
+  ggplot(aes(x = week, y = outcome, group = subj, color = group)) + 
+  geom_point() + 
+  geom_path() + 
+  facet_grid(~group) 
+```
+
+This plot suggests high within-subject correlation -- subjects who start above average end up above average, and those that start below average end up below average. Subjects in the control group generally don't change over time, but those in the experiment group increase their outcome in a roughly linear way. 
 
 ## Part 2: U.S. Homicide Rates
 
-Let's load the raw homicide data and inspect it.
+The Washington Post has gathered data on homicides in 50 large U.S. cities. Let's load the raw homicide data and inspect it.
 
-```{r load data}
+```{r load homicide data}
 homicide_data = read_csv("data/homicide-data.csv") %>% 
   janitor::clean_names()
 
@@ -70,7 +110,7 @@ baltimore_est %>%
 
 We can see that the estimated proportion of of unsolved homicides in Baltimore is `r baltimore_est %>% broom::tidy() %>% pull(estimate)*100`%. We are 95% confident that the proportion of unsolved homicides in Baltimore is between `r baltimore_est %>% broom::tidy() %>% pull(conf.low)*100`% and `r baltimore_est %>% broom::tidy() %>% pull(conf.high)*100`%.
 
-Next, we want use `map` to apply the `prop.test` function to estimate the proportion of unsolved homicides in all cities in our dataset.
+Next, we want use `map2` to apply the `prop.test` function to estimate the proportion of unsolved homicides in all cities in our dataset.
 
 ```{r mapping prop.test}
 unsolved_homicides = homicide_summary %>% 
@@ -125,7 +165,7 @@ We will map the `sim_t_test` function 5000 times, setting the true $\mu = 0$, an
 ```{r}
 sim_df = expand_grid(
   true_mean = 0,
-  iterate = 1:100) %>% 
+  iterate = 1:5000) %>% 
   mutate(ttest_df = map(true_mean, sim_t_test)) %>% 
   unnest(ttest_df) %>% 
   select(true_mean:estimate, p.value)
@@ -139,7 +179,7 @@ Now, we want to see how often $H_0$ is rejected when we increase $\mu$. For this
 ```{r}
 power_df = expand_grid(
   true_mean = 1:6,
-  iterate = 1:100) %>% 
+  iterate = 1:5000) %>% 
   mutate(ttest_df = map(true_mean, sim_t_test)) %>% 
   unnest(ttest_df) %>% 
   select(true_mean:estimate, p.value) %>% 
@@ -159,7 +199,7 @@ summary_power = power_df %>%
 
 summary_power %>% 
   ggplot(aes(x = true_mean, y = prop_reject)) + 
-  geom_point(colour = "purple") + 
+  geom_point(colour = "purple", size = 2) + 
   labs(
     x = "True mean",
     y = "Power",
