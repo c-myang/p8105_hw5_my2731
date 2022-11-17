@@ -98,7 +98,7 @@ homicide_summary
 
 ### Estimating the proportion of unsolved homicides in Baltimore
 
-Next, for the city of Baltimore, MD, we will use the `prop.test` function to estimate the proportion of homicides that are unsolved and its confidence interval.
+Next, for the city of Baltimore, MD, we will use the `prop.test` function to estimate the proportion of homicides that are unsolved and its confidence interval. To do so, we need to pull the number of unsolved and total homicides in Baltimore, and create objects `x` and `n` to input into the `prop.test` function. We will then tidy our table to get the estimated proportion and 95% CI.
 
 ```{r estimates for Baltimore}
 baltimore_df = homicide_summary %>% 
@@ -125,7 +125,7 @@ We can see that the estimated proportion of of unsolved homicides in Baltimore i
 
 ### Estimating the proportion of unsolved homicides across cities
 
-While the code chunk above lets us compute the output for single city, we may want a more efficient way to get estimates for all cities. We will therefore use `map2` to apply the `prop.test` function to estimate the proportion of unsolved homicides in all cities in our dataset.
+While the code chunk above lets us compute the output for single city, we may want a more efficient way to get estimates for all cities. We will therefore use `map2` to apply the `prop.test` function to estimate the proportion of unsolved homicides in all cities in our dataset. We will then tidy the output of the proportion test, and select only the estimated proportion of unsolved homicides along with their 95% confidence interval.
 
 ```{r mapping prop.test}
 unsolved_homicides = homicide_summary %>% 
@@ -138,7 +138,7 @@ unsolved_homicides = homicide_summary %>%
 unsolved_homicides
 ```
 
-The resulting `unsolved_homicides` dataframe contains `r nrow(unsolved_homicides)` observations of `r ncol(unsolved_homicides)` variables, providing number of unsolved and total homicides, and the estimated proportion of unsolved homicides, along with their 95% CIs which come from mapping the `prop.test` function to all the cities.
+The resulting `unsolved_homicides` dataframe contains `r nrow(unsolved_homicides)` observations of `r ncol(unsolved_homicides)` variables, providing number of unsolved and total homicides.
 
 Finally, we will create a plot of the estimated proportions of unsolved homicides in each city, along with their confidence intervals.
 
@@ -164,11 +164,11 @@ We can see from the above plot that the estimated proportion of unsolved homicid
 
 ## Part 3: Simulating parameters that affect power
 
-A common question when designing experiments is whether a false null hypothesis will be rejected, or what the power of a study will be. Power depends on the sample size of our study, effect size, and error variance. In this problem, we will conduct a simulation to explore power in a one-sample t-test. 
+A common question when designing experiments is how often a false null hypothesis will be rejected, or in other words, what the power of a study will be. Power depends on the sample size of our study, effect size, and error variance. In this problem, we will conduct a simulation to explore power in a one-sample t-test. 
 
 ### Iterating a t-test computation
 
-First, we will write a function that generates a random sample from a normal distribution and outputs the results for a one-sample t-test of $H_0: \mu = 0$ for $\alpha = 0.05$ on the sample mean. We will fix the $n = 30$, $\sigma = 5$, and allow the $\mu$ to vary.
+First, we will write a function that generates a random sample from a normal distribution and outputs the results for a one-sample, two-sided t-test of $H_0: \mu = 0$ for $\alpha = 0.05$ on the sample mean. We will fix the $n = 30$, $\sigma = 5$, and allow the $\mu$ to vary.
 
 ```{r sim_t_test function}
 sim_t_test = function(true_mean) {
@@ -194,6 +194,7 @@ sim_df = expand_grid(
 
 sim_df
 ```
+
 The resulting dataset has `r nrow(sim_df)` iterations of estimates for $\hat{\mu}$ generated from a normal distribution and p-values for one-sample t-test for a true mean of $\mu = 0$. We can see that the $\hat{\mu}$ estimates hover around 0. For $\hat{\mu}$ estimates that are far from 0, the corresponding p-value is less than 0.05, indicating a rejection of the null hypothesis.
 
 ### Computing power across varying effect sizes
@@ -212,9 +213,9 @@ power_df = expand_grid(
 power_df
 ```
 
-The resulting dataset has `r nrow(power_df)` iterations for true mean values ranging from 1 to 6, estimating the $\hat{\mu}$ generated from a normal distribution and p-values for one-sample t-test. We can see that the $\hat{\mu}$ estimates hover around the true mean value, and for $\hat{\mu}$ estimates that are far from $\mu$, the corresponding p-value is less than 0.05.
+The resulting dataset has `r nrow(power_df)` iterations for true mean values ranging from 1 to 6, estimating the $\hat{\mu}$ generated from a normal distribution and p-values for one-sample t-test. We can see that the $\hat{\mu}$ estimates hover around the true mean value, and for $\hat{\mu}$ estimates that are far from $0$, the corresponding p-value is less than 0.05.
 
-Let's plot the proportion of times the null was rejected, also known as the power of the test according to the true effect size $\mu$. 
+Let's plot the proportion of times the null was rejected, also known as the power of the test according to the true mean $\mu$. 
 
 ```{r}
 summary_power = power_df %>% 
@@ -231,25 +232,32 @@ summary_power %>%
   )
 ```
 
-The above plot shows that as the distance between $\mu$ and $0$ increases (i.e. the effect size), the power (probability of rejecting the null hypothesis given $H_\alpha: \mu ≠ 0$) increases. For the largest effect size of $\mu ≠ 6$, the power was 100%.
+The above plot shows that as the distance between $\mu$ and $0$ increases (i.e. the effect size), the power (probability of rejecting the null hypothesis given $H_\alpha: \mu ≠ 0$) increases. For the largest effect size of $\mu = 6$, the power was 100%.
 
-Finally, we can plot the average estimates of $\hat{\mu}$ against the true $\mu$, for samples where the null hypothesis was rejected versus not rejected.
+Finally, we group by the true mean value to plot the average estimates of $\hat{\mu}$ against the true $\mu$, for samples where the null hypothesis was rejected versus not rejected.
 
 ```{r}
-power_df %>% 
+mean_est_all = power_df %>% 
+  group_by(true_mean) %>% 
+  summarise(mean_est = mean(estimate))
+
+mean_est_nullrej = power_df %>% 
+  filter(reject_h0 == "Null rejected") %>% 
   group_by(true_mean, reject_h0) %>% 
-  summarise(mean_est = mean(estimate)) %>% 
-  mutate(reject_h0 = fct_relevel(reject_h0, c("Null rejected", "Null not rejected"))) %>% 
-  ggplot(aes(x = true_mean, y = mean_est, colour = reject_h0)) + 
-  geom_point(size = 2) + 
+  summarise(mean_est = mean(estimate))
+
+mean_est_all %>% 
+  ggplot(aes(x = true_mean, y = mean_est)) + 
+  geom_point(size = 2, colour = "turquoise") + 
+  geom_point(data = mean_est_nullrej, aes(color = reject_h0), size = 2) + 
   labs(
     x = "True mean",
     y = "Estimated mean",
-    title = "Estimated vs. true mean for samples where the null was rejected vs. not rejected", 
-    color = ""
+    title = "Estimated vs. true means in 5000 random normal samples of n = 30, sigma = 5", 
+    colour = ""
   )
 ```
 
-Based on the plot, we can see that for samples where the null hypothesis was rejected, average $\hat{\mu}$ estimates across tests for which the null is rejected is much lower than true value of $\mu$. This is in accordance to what we would expect, as samples with an estimated mean closer to 0 will not reject the null, while samples which were closer to the true mean value will reject the the null hypothesis.
+Based on the above plot, we can see that for samples where the null hypothesis was rejected, average $\hat{\mu}$ estimates across tests for which the null is rejected is much higher than true value of $\mu$. This is in accordance to what we would expect, as samples with a larger true mean away from 0 will have a higher probability of rejecting the null hypothesis, while samples with a smaller true mean will have a lower probability of rejecting the null hypothesis. 
 
-Moreover, as the effect size $\mu$ increased, the estimated means between samples that rejected/did not reject the null deviated further apart from each other. Notably, for $\mu = 6$, since all samples led to a rejection of the null hypothesis, there is no $\hat{\mu}$ value, indicating that the effect size was too large to sample a distribution which falsely failed to reject the null. 
+Moreover, as the effect size of $\mu$ increased, the estimated means between all samples and samples that rejected the null converge. This means that as the true means got larger, the probability of pulling a sample with a sample mean around 0 became nearly 0%, leading to fewer samples that failed to reject the null hypothesis, and more samples that had means closer to the true mean. Notably, for $\mu = 6$, since all samples led to a rejection of the null hypothesis, there is no $\hat{\mu}$ value, indicating that the effect size was too large to sample a distribution which falsely failed to reject the null. 
